@@ -1,11 +1,11 @@
 {
     "formatVersion": 1,
-    "datasetVersion": 10,
-    "updatedAt": "2026-11-15T23:48:27Z",
+    "datasetVersion": 11,
+    "updatedAt": "2026-11-15T23:48:37Z",
     "extractor": "luma-grid-v1",
     "featureDim": 1248,
     "encoding": "int8-base64",
-    "sampleCount": 96,
+    "sampleCount": 97,
     "labelCounts": {
         "10C": 2,
         "10D": 1,
@@ -36,7 +36,7 @@
         "7H": 1,
         "7S": 2,
         "8C": 2,
-        "8D": 1,
+        "8D": 2,
         "8H": 1,
         "8S": 2,
         "9C": 2,
@@ -111,6 +111,11 @@
             "file": "features/000010-20261115T234826Z.json",
             "count": 10,
             "sha256": "6d2600bbc34000c72998e29efef5762f93026747e339b1fe207e7927b75dbcf0"
+        },
+        {
+            "file": "features/000011-20261115T234837Z.json",
+            "count": 1,
+            "sha256": "3a59624f85c8d240cfbb55def43199ec8722f0bfa0baf51befa19a4c97fb75d3"
         }
     ],
     "deleted": []
