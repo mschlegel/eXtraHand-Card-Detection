@@ -1,15 +1,16 @@
 {
     "formatVersion": 1,
-    "datasetVersion": 3,
-    "updatedAt": "2026-11-15T23:30:33Z",
+    "datasetVersion": 4,
+    "updatedAt": "2026-11-15T23:32:03Z",
     "extractor": "luma-grid-v1",
     "featureDim": 1248,
     "encoding": "int8-base64",
-    "sampleCount": 46,
+    "sampleCount": 54,
     "labelCounts": {
         "10C": 1,
         "10D": 1,
         "10H": 1,
+        "10S": 1,
         "2C": 1,
         "2D": 1,
         "2H": 1,
@@ -18,8 +19,12 @@
         "3D": 1,
         "3H": 1,
         "3S": 1,
+        "4C": 1,
+        "4D": 1,
         "4H": 1,
         "4S": 1,
+        "5C": 1,
+        "5D": 1,
         "5H": 1,
         "5S": 1,
         "6C": 1,
@@ -29,6 +34,7 @@
         "7C": 1,
         "7D": 1,
         "7H": 1,
+        "7S": 1,
         "8C": 1,
         "8D": 1,
         "8H": 1,
@@ -44,12 +50,13 @@
         "JC": 1,
         "JD": 1,
         "JH": 1,
-        "JK": 1,
+        "JK": 2,
         "JS": 1,
         "KC": 1,
         "KD": 1,
         "KH": 1,
         "KS": 1,
+        "QC": 1,
         "QD": 1,
         "QH": 1,
         "QS": 1
@@ -69,6 +76,11 @@
             "file": "features/000003-20261115T233032Z.json",
             "count": 6,
             "sha256": "12d40a7a8ab66f700afbea9fed24e1ab5033c366885eff85dc7ff86e28f518e6"
+        },
+        {
+            "file": "features/000004-20261115T233202Z.json",
+            "count": 8,
+            "sha256": "b434dfbbef4f29ba72ef0ab91445b32f2075ce97cdc98df3b29761708d159964"
         }
     ],
     "deleted": []
