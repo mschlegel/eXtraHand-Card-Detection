@@ -110,8 +110,11 @@ class GitHubDatasetSync(private val store: LocalDatasetStore, private val cfg: G
             progress.update("Committing...")
             val tree = gh.createTree(baseTree, entries)
             val msg = buildString {
-                append("dataset v$version: +${adds.size} samples")
-                if (dels.isNotEmpty()) append(", -${dels.size} deleted")
+                append("dataset v$version: ")
+                append(listOfNotNull(
+                    if (adds.isNotEmpty()) "+${adds.size} samples" else null,
+                    if (dels.isNotEmpty()) "-${dels.size} deleted" else null,
+                ).joinToString(", "))
                 append(" (${liveSamples.size} total)\n\n[card-trainer sync]")
             }
             val commit = gh.createCommit(msg, tree, listOf(head))

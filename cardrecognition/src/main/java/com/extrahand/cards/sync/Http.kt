@@ -44,19 +44,16 @@ internal object Http {
 
     fun get(url: String, headers: Map<String, String> = emptyMap()): Response = request(url, headers = headers)
 
-    /** Android's HttpURLConnection accepts PATCH; the desktop JDK one does not, so fall back to reflection. */
+    /**
+     * Android's HttpURLConnection accepts PATCH; the desktop JDK one does not. There we send POST with
+     * X-HTTP-Method-Override, which the GitHub API honours.
+     */
     private fun setMethod(c: HttpURLConnection, method: String) {
         try {
             c.requestMethod = method
         } catch (e: java.net.ProtocolException) {
-            val f = HttpURLConnection::class.java.getDeclaredField("method")
-            f.isAccessible = true
-            f.set(c, method)
-            // HTTPS connections on the JDK wrap a delegate connection that also needs the method.
-            runCatching {
-                val d = c.javaClass.getDeclaredField("delegate").apply { isAccessible = true }.get(c)
-                if (d is HttpURLConnection) f.set(d, method)
-            }
+            c.requestMethod = "POST"
+            c.setRequestProperty("X-HTTP-Method-Override", method)
         }
     }
 }
