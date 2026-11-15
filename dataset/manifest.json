@@ -1,11 +1,11 @@
 {
     "formatVersion": 1,
-    "datasetVersion": 12,
-    "updatedAt": "2026-11-15T23:51:05Z",
+    "datasetVersion": 13,
+    "updatedAt": "2026-11-15T23:52:24Z",
     "extractor": "luma-grid-v1",
     "featureDim": 1248,
     "encoding": "int8-base64",
-    "sampleCount": 107,
+    "sampleCount": 109,
     "labelCounts": {
         "10C": 2,
         "10D": 2,
@@ -50,7 +50,7 @@
         "JC": 2,
         "JD": 2,
         "JH": 2,
-        "JK": 2,
+        "JK": 4,
         "JS": 2,
         "KC": 2,
         "KD": 2,
@@ -121,6 +121,11 @@
             "file": "features/000012-20261115T235105Z.json",
             "count": 10,
             "sha256": "9f31707503e8d5fa226dcb8ea4dc4958a72ba259e5e01f20f95d481539b0aafa"
+        },
+        {
+            "file": "features/000013-20261115T235223Z.json",
+            "count": 2,
+            "sha256": "b7fa541575861c4939d57a0133b4abc103e890bb10971edeecde394d640ef770"
         }
     ],
     "deleted": []
