@@ -1,0 +1,6 @@
+<resources>
+    <style name="Theme.CardTrainer" parent="android:Theme.Material.NoActionBar">
+        <item name="android:statusBarColor">#FF101410</item>
+        <item name="android:windowBackground">#FF101410</item>
+    </style>
+</resources>

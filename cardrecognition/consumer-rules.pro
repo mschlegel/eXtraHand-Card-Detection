@@ -1,0 +1,2 @@
+-keep class com.extrahand.cards.core.** { *; }
+-keepattributes *Annotation*, InnerClasses

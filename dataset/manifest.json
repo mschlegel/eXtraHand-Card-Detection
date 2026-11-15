@@ -1,0 +1,12 @@
+{
+    "formatVersion": 1,
+    "datasetVersion": 0,
+    "updatedAt": "2026-11-15T00:00:00Z",
+    "extractor": "luma-grid-v1",
+    "featureDim": 1248,
+    "encoding": "int8-base64",
+    "sampleCount": 0,
+    "labelCounts": {},
+    "shards": [],
+    "deleted": []
+}
