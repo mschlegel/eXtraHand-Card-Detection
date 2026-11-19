@@ -1,11 +1,11 @@
 {
     "formatVersion": 1,
-    "datasetVersion": 45,
-    "updatedAt": "2026-11-19T23:29:21Z",
+    "datasetVersion": 46,
+    "updatedAt": "2026-11-19T23:32:12Z",
     "extractor": "luma-grid-v1",
     "featureDim": 1248,
     "encoding": "int8-base64",
-    "sampleCount": 366,
+    "sampleCount": 376,
     "labelCounts": {
         "10C": 6,
         "10D": 6,
@@ -17,15 +17,15 @@
         "2S": 9,
         "3C": 6,
         "3D": 6,
-        "3H": 6,
+        "3H": 7,
         "3S": 7,
         "4C": 6,
         "4D": 6,
         "4H": 6,
-        "4S": 7,
+        "4S": 8,
         "5C": 6,
-        "5D": 6,
-        "5H": 4,
+        "5D": 7,
+        "5H": 5,
         "5S": 6,
         "6C": 6,
         "6D": 6,
@@ -37,9 +37,9 @@
         "7S": 8,
         "8C": 6,
         "8D": 8,
-        "8H": 6,
+        "8H": 7,
         "8S": 6,
-        "9C": 7,
+        "9C": 8,
         "9D": 6,
         "9H": 8,
         "9S": 7,
@@ -47,8 +47,8 @@
         "AD": 7,
         "AH": 7,
         "AS": 8,
-        "BK": 6,
-        "JC": 6,
+        "BK": 7,
+        "JC": 7,
         "JD": 7,
         "JH": 8,
         "JK": 7,
@@ -57,12 +57,12 @@
         "JS": 7,
         "KC": 7,
         "KD": 6,
-        "KH": 6,
+        "KH": 7,
         "KS": 7,
         "QC": 6,
         "QD": 8,
         "QH": 6,
-        "QS": 6
+        "QS": 7
     },
     "shards": [
         {
@@ -289,6 +289,11 @@
             "file": "features/000045-20261119T232921Z.json",
             "count": 10,
             "sha256": "c4fc9b8a95e2f435cbcfd67dff4cb55ff12dcdcc77072ec950eb6818dd72e532"
+        },
+        {
+            "file": "features/000046-20261119T233211Z.json",
+            "count": 10,
+            "sha256": "e519e6e0dddf56f20778ea4ef4f10ca91109f04e64f768b8d154b21f072a0c16"
         }
     ],
     "deleted": [
