@@ -13,12 +13,19 @@ trained data, either through the snap-in library or straight from GitHub.
 ## Layout
 - `cardrecognition/`: Android library, namespace `com.extrahand.cards`
   - `core/`: **pure Kotlin, no Android imports** (keep it that way; it's JVM-unit-tested and portable).
-    `CardRecognizer` (public interface), `KnnCardRecognizer`, `LumaGridV1`, `CardLocator`, `KnnIndex`, `Dataset.kt` (wire format), `Card`.
+    `CardRecognizer` (public interface), `KnnCardRecognizer`, `LumaGridV1`, `CardLocator`, `KnnIndex`, `Dataset.kt` (wire format), `Card` (incl. `BK` = card back).
+  - `core/table/`: whole-table reading, pure Kotlin. `TableReader` (segmentation, homography rectification, corner-index
+    ink search + edge scan), `CornerIndex` (corner view of luma-grid-v1 vectors), `Segmentation`, `FramePlanes`, `Geometry`,
+    `SceneStabilizer`, `Rectifier`. Tested end-to-end on synthetic rendered tables in `TableReaderTest`. `RealDatasetTest` is an
+    opt-in benchmark on the real dataset photos (`EXTRAHAND_REAL=1`). Run it after changing thresholds or the corner logic.
+- The dataset in a fresh checkout can be stale: the app pushes sync commits to GitHub. `git fetch` before judging what is trained.
   - `sync/`: pure JVM I/O. `RemoteDatasetLoader` (read path, cached), `LocalDatasetStore` (on-device log),
     `GitHubDatasetSync` and `GitHubClient` (write path: Git Data API, one commit per sync).
   - `android/`: Bitmap adapters, the `CardRecognition` facade, and `CardFrameAnalyzer` (CameraX is `compileOnly`).
 - `app/`: Card Trainer (Compose). `TrainerViewModel` owns the store, the recognizer, and sync. `CameraPreview.kt` holds the camera and the guide overlay.
-  `TrainerScreen.kt` holds the UI. Settings (GitHub owner/repo/branch/path/token) are in SharedPreferences.
+  `TrainerScreen.kt` holds the UI. Settings (GitHub owner/repo/branch/path/token, module toggles) are in SharedPreferences.
+  `handreader/`: the optional Hand Reader module (`HandReader` controller + `HandReaderScreen`). It is created only when the
+  module is switched on and shares the trainer's recognizer.
 - `dataset/`: **data, written only by the app.** Don't hand-edit or rewrite shards. They're immutable and clients cache them by name.
 - `tools/python/cardnet.py`: the Python mirror of the extractor and classifier.
 

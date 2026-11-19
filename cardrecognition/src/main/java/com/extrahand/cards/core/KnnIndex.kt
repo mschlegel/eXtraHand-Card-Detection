@@ -14,6 +14,20 @@ class KnnIndex(val dim: Int) {
 
     val size: Int get() = snap.count
 
+    /** Incremented on every add/remove/clear, so derived indexes (e.g. [CornerIndex]) know when to rebuild. */
+    @Volatile var version: Long = 0
+        private set
+
+    /** Visit every stored vector (a consistent snapshot). Do not keep or mutate [vector]. */
+    fun forEach(block: (id: String, label: String, vector: FloatArray) -> Unit) {
+        val s = snap
+        val buf = FloatArray(dim)
+        for (i in 0 until s.count) {
+            System.arraycopy(s.data, i * dim, buf, 0, dim)
+            block(s.ids[i]!!, s.labels[i]!!, buf)
+        }
+    }
+
     fun labelCounts(): Map<String, Int> {
         val s = snap
         val m = HashMap<String, Int>()
@@ -33,6 +47,7 @@ class KnnIndex(val dim: Int) {
             s.ids[s.count] = id
             s.labels[s.count] = label
             snap = Snapshot(s.data, s.ids, s.labels, s.count + 1)
+            version++
         }
     }
 
@@ -50,10 +65,11 @@ class KnnIndex(val dim: Int) {
         }
         ids[last] = null; labels[last] = null
         snap = Snapshot(data, ids, labels, last)
+        version++
         true
     }
 
-    fun clear() = synchronized(lock) { snap = Snapshot(FloatArray(0), arrayOfNulls(0), arrayOfNulls(0), 0) }
+    fun clear() { synchronized(lock) { snap = Snapshot(FloatArray(0), arrayOfNulls(0), arrayOfNulls(0), 0); version++ } }
 
     data class Neighbor(val id: String, val label: String, val similarity: Float)
 

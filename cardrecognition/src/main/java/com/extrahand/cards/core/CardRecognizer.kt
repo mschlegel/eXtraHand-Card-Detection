@@ -69,7 +69,7 @@ data class RecognitionThresholds(val minProbability: Float = 0.5f, val minSimila
 /** Default implementation: [FeatureExtractor] + [KnnIndex]. Thread-safe. */
 class KnnCardRecognizer(
     override val extractor: FeatureExtractor = LumaGridV1,
-    private val thresholds: RecognitionThresholds = RecognitionThresholds(),
+    val thresholds: RecognitionThresholds = RecognitionThresholds(),
     private val k: Int = 7,
 ) : TrainableCardRecognizer {
     private val index = KnnIndex(extractor.dim)
@@ -102,6 +102,12 @@ class KnnCardRecognizer(
             croppedImage = null,
         )
     }
+
+    /** Changes whenever samples are learned or forgotten. */
+    val dataVersion: Long get() = index.version
+
+    /** Visit every learned sample vector (used to build derived views such as [CornerIndex]). */
+    fun forEachSample(block: (id: String, label: String, vector: FloatArray) -> Unit) = index.forEach(block)
 
     override fun learn(sampleId: String, card: Card, features: FloatArray) = index.add(sampleId, card.label, features)
     override fun forget(sampleId: String): Boolean = index.remove(sampleId)

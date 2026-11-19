@@ -68,7 +68,12 @@ The scale is discarded on purpose, since cosine doesn't depend on it.
 ### Labels
 
 `<rank><suit>`. Rank: `A 2 3 4 5 6 7 8 9 10 J Q K`. Suit: `S H D C`. Examples: `AS`, `10H`, `QD`.
-The joker is `JK`. Parsers should also accept `T` for ten and lowercase.
+Jokers: `JKH` is the high joker (also called big; usually the coloured one), `JKL` is the low joker
+(small or little), and `JK` is a joker whose high/low identity wasn't recorded. That covers older samples, or
+decks whose two jokers are identical. Card Trainer's **Sort jokers** re-files `JK` samples as `JKH`/`JKL`
+with a tombstone plus a new sample (same vector, image moved to the new label's folder). The back of a card (a face-down card) is `BK`. Train it like a card, so face-down
+cards, draw piles and opponents' hands can be detected. Parsers should also accept `T` for ten and lowercase.
+Older readers that don't know `BK` skip it (`Card.parse` returns null), so the label is backward compatible.
 
 ### Images
 

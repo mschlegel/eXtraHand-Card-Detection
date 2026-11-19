@@ -87,12 +87,16 @@ you already have a tight crop, for example from your own detector.
 | `core.TrainableCardRecognizer` | Adds `learn(id, card, features)`, `forget(id)`, `clear()` |
 | `core.KnnCardRecognizer` | Default implementation. `KnnCardRecognizer.fromDataset(manifest, shards)` for plain JVM |
 | `core.Recognition` / `Candidate` | Result: `card?`, `confidence`, `similarity`, `candidates`, `features`, `croppedImage` |
-| `core.Card`, `Rank`, `Suit` | `Card.parse("10H")`, `.label`, `.display` ("10♥"), `Card.STANDARD_DECK`, `Card.JOKER` |
+| `core.Card`, `Rank`, `Suit`, `Special` | `Card.parse("10H")`, `.label`, `.display` ("10♥"), `Card.STANDARD_DECK`, `Card.JOKER_HIGH` / `JOKER_LOW` / `JOKER` (unspecified), `Card.BACK`, `.isJoker`, `.isBack` |
 | `core.CardImage`, `NormRect` | Platform-neutral ARGB image; normalized rects; `NormRect.centeredCard()` |
 | `core.FeatureExtractor`, `LumaGridV1` | Descriptor (see FEATURE_SPEC.md) |
 | `core.CardLocator` | Crop tightening heuristic |
 | `core.DatasetCodec`, `DatasetManifest`, `FeatureShard`, `SampleRecord` | Wire format (see DATASET_FORMAT.md) |
-| `android.CardRecognition` | `load` / `loadDetailed` / `loadCached` |
+| `core.table.TableReader` | **Whole-table reading** from one full frame: hands (fanned, spread, loose), single cards, face-down backs/piles. `read(CardImage): TableScene` |
+| `core.table.TableScene`, `CardGroup`, `SeenCard`, `BackGroup` | Result: `groups` (one per hand / cluster of face-up cards), `backs` (`SINGLE_OR_PILE` or `SPREAD`, `minCount`), `unknown` |
+| `core.table.CornerIndex` | Corner-index matcher built from the same dataset (FEATURE_SPEC.md, "Corner view") |
+| `core.table.SceneStabilizer` | Smooths live scenes across frames |
+| `android.CardRecognition` | `load` / `loadDetailed` / `loadCached` / `loadTableReader` |
 | `android.CardFrameAnalyzer` | CameraX analyzer (guide crop and recognize) |
 | `android.*` extensions | `Bitmap.toCardImage()`, `CardImage.toBitmap()`, `toJpeg()`, `rotated()`, `cropFraction()` |
 | `sync.RemoteDatasetLoader` | Cached downloader (pure JVM) |
@@ -100,6 +104,27 @@ you already have a tight crop, for example from your own detector.
 
 Threading: `recognize` is CPU-only and thread-safe (about 1–5 ms per 1000 samples). `load` is a suspend
 function that runs on IO. `GitHubDatasetSync.sync()` blocks.
+
+## 4b. Reading a whole table (hands, piles, backs)
+
+```kotlin
+val reader = CardRecognition.loadTableReader(context)        // same dataset, plus the corner view
+val scene = reader.read(fullFrameBitmap.toCardImage())        // camera anywhere; full-res frames read farther
+for (g in scene.groups) println(g.cards.map { it.card.label }) // e.g. [AS, KS, 10H] for one fanned hand
+scene.backs.forEach { println("${it.layout} at ${it.box}, at least ${it.minCount} cards") }
+```
+
+* Cards that are fully visible are rectified (perspective is fine) and read with the full vector
+  (`ReadMethod.FULL_CARD`). Partly hidden cards are read from their corner index (`ReadMethod.CORNER_INDEX`).
+* `loadTableReader` also downloads the sample JPEGs once (a few MB, cached) and matches against them. On
+  the real dataset this roughly doubles what is read and cuts misreads by two thirds (`RealDatasetTest`). Pass
+  `usePhotos = false` to skip it. On plain JVM, pass `sampleImages = { id, label -> CardImage? }` to `TableReader`.
+* Face-down cards need `BK` samples (trained in Card Trainer with the **Back** chip). Without them, a colour
+  heuristic reports likely backs with `fromTraining = false`.
+* `TableReaderConfig.multiDeck = true` keeps repeated labels (two-deck games). Hand *value* is left to the
+  game layer: use `CardGroup.cards`.
+* Cost is roughly 0.2–1 s per frame on a phone. Run it off the main thread, and wrap live frames in a
+  `SceneStabilizer`.
 
 ## 5. Non-Android consumers
 

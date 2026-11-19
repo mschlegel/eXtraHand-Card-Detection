@@ -47,6 +47,15 @@ class CoreTest {
         assertEquals("10H", Card.of("10h").label)
         assertEquals("10H", Card.of("TH").label)
         assertEquals(Card.JOKER, Card.of("JK"))
+        assertEquals(Card.BACK, Card.of("bk"))
+        assertTrue(Card.BACK.isBack && !Card.BACK.isJoker && !Card.JOKER.isBack)
+        assertEquals("BK", Card.BACK.label)
+        assertEquals(Card.JOKER_HIGH, Card.of("jkh"))
+        assertEquals(Card.JOKER_LOW, Card.of("JKL"))
+        assertEquals(Card.JOKER, Card(null, null))
+        assertTrue(Card.JOKER_HIGH.isJoker && Card.JOKER_LOW.isJoker && !Card.JOKER_HIGH.isBack)
+        assertTrue(Card.JOKER_HIGH != Card.JOKER_LOW && Card.JOKER_HIGH != Card.JOKER)
+        assertEquals("JH", Card.of("JH").label) // jack of hearts is unaffected
         assertNull(Card.parse("1X"))
         assertEquals(52, Card.STANDARD_DECK.map { it.label }.toSet().size)
     }
@@ -115,6 +124,30 @@ class CoreTest {
         assertEquals(listOf("a"), s2.syncState().pendingAdds)
         assertTrue(s2.imageFile("samples/AS/a.jpg").exists())
         assertNotNull(s2.get("a"))
+        dir.deleteRecursively()
+    }
+
+    @Test fun relabelMovesSampleAndImage() {
+        val dir = Files.createTempDirectory("store").toFile()
+        val st = LocalDatasetStore(dir)
+        val f = DatasetCodec.encodeVector(LumaGridV1.extract(fakeCard("AS")))
+        // Pretend both were published already: one has its JPEG on the device, one was pulled from GitHub.
+        st.add(SampleRecord("local", "JK", f, 1, image = "samples/JK/local.jpg"), byteArrayOf(7, 7))
+        st.add(SampleRecord("remote", "JK", f, 2, image = "samples/JK/remote.jpg"), null)
+        st.markPublished(listOf("local", "remote"), emptyList(), emptyList(), 1, emptyList())
+
+        val a = st.relabel("local", "JKH", "n1")!!
+        val b = st.relabel("remote", "JKL", "n2")!!
+        assertEquals("samples/JKH/n1.jpg", a.image)
+        assertEquals(f, a.f)
+        assertTrue(st.imageFile("samples/JKH/n1.jpg").exists())
+        assertTrue(!st.imageFile("samples/JK/local.jpg").exists())
+        val state = LocalDatasetStore(dir).syncState()
+        assertEquals(setOf("n1", "n2"), state.pendingAdds.toSet())
+        assertEquals(setOf("local", "remote"), state.pendingDeletes.map { it.id }.toSet())
+        assertEquals(mapOf("samples/JKL/n2.jpg" to "samples/JK/remote.jpg"), state.pendingCopies)
+        assertEquals(setOf("JKH", "JKL"), st.samples().map { it.label }.toSet())
+        assertEquals(b.createdAt, 2L)
         dir.deleteRecursively()
     }
 }

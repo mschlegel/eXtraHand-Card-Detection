@@ -32,6 +32,11 @@ class LocalDatasetStore(val root: File) {
         val remoteDatasetVersion: Long = 0,
         val remoteDeleted: List<String> = emptyList(),
         val lastSyncAt: Long = 0,
+        /**
+         * Relabelled samples whose JPEG is not on this device: new image path -> old image path. Sync copies
+         * the remote file across in the same commit that removes the old one.
+         */
+        val pendingCopies: Map<String, String> = emptyMap(),
     )
 
     private val logFile = File(root, "samples.jsonl")
@@ -85,6 +90,24 @@ class LocalDatasetStore(val root: File) {
         return true
     }
 
+    /**
+     * Give a sample a new label. Shards are immutable, so this is a delete (tombstone) plus an add of the same
+     * vector under a new id, with the image moved to `samples/<newLabel>/<newId>.jpg`. If the JPEG is not on
+     * this device (sample pulled from GitHub), the move happens remotely at the next sync.
+     * Returns the new record, or null if [id] is unknown.
+     */
+    @Synchronized fun relabel(id: String, newLabel: String, newId: String): SampleRecord? {
+        val old = live[id] ?: return null
+        val newImage = old.image?.let { "samples/$newLabel/$newId.jpg" }
+        val rec = old.copy(id = newId, label = newLabel, image = newImage, source = (old.source ?: "") + " [relabelled from ${old.label}]")
+        val localJpeg = old.image?.let { imageFile(it) }?.takeIf { it.exists() }?.readBytes()
+        delete(id)
+        add(rec, localJpeg)
+        if (localJpeg == null && old.image != null && newImage != null && id !in state.pendingAdds)
+            saveState(state.copy(pendingCopies = state.pendingCopies + (newImage to old.image)))
+        return rec
+    }
+
     // ---- used by GitHubDatasetSync ----
 
     /** Merge samples published elsewhere (e.g. after reinstall). Returns the records actually added. */
@@ -115,6 +138,7 @@ class LocalDatasetStore(val root: File) {
             remoteDatasetVersion = datasetVersion,
             remoteDeleted = remoteDeleted,
             lastSyncAt = System.currentTimeMillis(),
+            pendingCopies = state.pendingCopies.filterKeys { k -> addedIds.none { k.endsWith("/$it.jpg") } },
         ))
     }
 

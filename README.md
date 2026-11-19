@@ -65,6 +65,30 @@ or open the project in Android Studio and press Run.
 Tips: Use even light (the **Light** button turns on the torch) on a plain, darker background. A few samples
 per card under different lighting beat many identical ones.
 
+**Jokers:** use the **High joker** / **Low joker** chips (big / small). **Joker (either)** is for decks whose
+two jokers are identical. Samples saved before this split show up as "N joker samples not marked high/low ·
+Sort". Tap it to file each photo as High or Low. It's published on the next sync like any other change.
+
+**Card backs:** to detect face-down cards (draw pile, opponents' hands), capture the back of your deck a few
+times. Tap **✗ Wrong** and then the **Back** chip. Backs are stored under the label `BK`.
+
+## Hand reader module (optional)
+
+Turn it on in **⚙ → Modules → Hand reader**. A **Table** button then switches to a full-frame camera that
+reads everything it can see, with the camera anywhere around the table:
+
+* fanned, spread or overlapping hands, single cards (rotated, at an angle, far away) and loose groups,
+* face-down cards: a single back or squared pile (e.g. the draw deck), or a spread of backs (with a lower
+  bound on the count).
+
+It needs no new training. It matches against your sample photos (any that are only on GitHub are
+downloaded once in the background when you first open it). Fully visible cards are rectified and matched with the normal descriptor, and
+partly hidden cards are matched by their corner index, which is part of every existing sample. **Live**
+reads about once a second and smooths the results. **Read table (full res)** takes one full-resolution
+photo and reads it, which works best for distant cards (use the zoom slider too). Turn on **Multiple
+decks** for games where a card can appear twice. Scoring a hand is left to later parts. The library
+returns groups of cards (`core.table.TableReader`, see [docs/INTEGRATION.md](docs/INTEGRATION.md)).
+
 ## How recognition works (v1)
 
 There's no neural network yet. Each card crop is turned into a 1248-number descriptor (`luma-grid-v1`:

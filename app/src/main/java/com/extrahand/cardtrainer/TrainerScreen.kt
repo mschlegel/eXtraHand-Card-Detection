@@ -27,6 +27,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -51,6 +52,7 @@ import com.extrahand.cards.core.Card
 import com.extrahand.cards.core.Rank
 import com.extrahand.cards.core.Recognition
 import com.extrahand.cards.core.Suit
+import com.extrahand.cardtrainer.handreader.HandReaderScreen
 import kotlinx.coroutines.delay
 
 private val Green = Color(0xFF2E7D32)
@@ -60,14 +62,29 @@ private val Red = Color(0xFFC62828)
 fun TrainerScreen(vm: TrainerViewModel) {
     val s by vm.state.collectAsState()
     var torch by remember { mutableStateOf(false) }
+    var sortingJokers by remember { mutableStateOf(false) }
     val analyzer = remember {
         CardFrameAnalyzer(recognizer = { null }, guide = GUIDE, minIntervalMs = 300, onFrame = vm::onFrame)
     }
 
     LaunchedEffect(s.message) { if (s.message != null) { delay(3500); vm.clearMessage() } }
 
+    if (s.mode == Mode.TABLE && s.settings.handReaderEnabled) {
+        Column(Modifier.fillMaxSize().safeDrawingPadding()) {
+            TopBar(s, torch, onTorch = { torch = !torch }, vm)
+            HandReaderScreen(vm.handReader, torch, s.sampleCount, s.backSamples, Modifier.weight(1f).fillMaxWidth())
+        }
+        if (s.showSettings) SettingsDialog(s.settings, onDismiss = { vm.showSettings(false) }, onSave = vm::saveSettings)
+        return
+    }
+
     Column(Modifier.fillMaxSize().safeDrawingPadding()) {
         TopBar(s, torch, onTorch = { torch = !torch }, vm)
+        if (s.unsortedJokers > 0) AssistChip(
+            onClick = { sortingJokers = true },
+            label = { Text("${s.unsortedJokers} joker samples not marked high/low · Sort") },
+            modifier = Modifier.padding(horizontal = 12.dp),
+        )
         Box(Modifier.weight(1f).fillMaxWidth().background(Color.Black)) {
             CameraPreview(analyzer, torch, Modifier.fillMaxSize())
             s.captured?.let { cap ->
@@ -91,21 +108,28 @@ fun TrainerScreen(vm: TrainerViewModel) {
     }
 
     if (s.showSettings) SettingsDialog(s.settings, onDismiss = { vm.showSettings(false) }, onSave = vm::saveSettings)
+    if (sortingJokers) JokerSortDialog(vm, onDone = { sortingJokers = false })
 }
 
 @Composable
 private fun TopBar(s: UiState, torch: Boolean, onTorch: () -> Unit, vm: TrainerViewModel) {
     Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("Card Trainer", fontWeight = FontWeight.Bold, fontSize = 18.sp, modifier = Modifier.weight(1f))
+            Text(
+                if (s.mode == Mode.TABLE) "Hand Reader" else "Card Trainer",
+                fontWeight = FontWeight.Bold, fontSize = 18.sp, modifier = Modifier.weight(1f),
+            )
+            if (s.settings.handReaderEnabled) TextButton(onClick = { vm.setMode(if (s.mode == Mode.TABLE) Mode.TRAIN else Mode.TABLE) }) {
+                Text(if (s.mode == Mode.TABLE) "Train" else "Table")
+            }
             TextButton(onClick = onTorch) { Text(if (torch) "Light off" else "Light") }
-            TextButton(onClick = vm::undoLast) { Text("Undo") }
+            if (s.mode == Mode.TRAIN) TextButton(onClick = vm::undoLast) { Text("Undo") }
             TextButton(onClick = { vm.sync() }, enabled = !s.syncing) { Text(if (s.syncing) "Syncing" else "Sync") }
             TextButton(onClick = { vm.showSettings(true) }) { Text("⚙") }
         }
         val acc = s.recentAccuracy?.let { "%.0f%%".format(it * 100) } ?: "–"
         Text(
-            "${s.sampleCount} samples · ${s.labelsCovered}/52 cards · ${s.pendingCount} unsynced · " +
+            "${s.sampleCount} samples · ${s.labelsCovered}/52 cards · ${s.backSamples} backs · ${s.pendingCount} unsynced · " +
                 "last $ACCURACY_WINDOW: $acc · v${s.datasetVersion}",
             fontSize = 12.sp, color = Color.LightGray,
         )
@@ -206,8 +230,14 @@ private fun CardPicker(initial: Card?, onPick: (Card) -> Unit, onBack: () -> Uni
                 label = { Text(su.symbol, fontSize = 22.sp, color = if (su.isRed) Color(0xFFEF5350) else Color.Unspecified) },
             )
         }
-        Spacer(Modifier.width(8.dp))
-        AssistChip(onClick = { onPick(Card.JOKER) }, label = { Text("Joker") })
+    }
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        AssistChip(onClick = { onPick(Card.JOKER_HIGH) }, label = { Text("High joker") })
+        AssistChip(onClick = { onPick(Card.JOKER_LOW) }, label = { Text("Low joker") })
+        // For decks whose two jokers are identical.
+        AssistChip(onClick = { onPick(Card.JOKER) }, label = { Text("Joker (either)") })
+        // Face-down cards: train the deck's back so piles and hidden hands are detected.
+        AssistChip(onClick = { onPick(Card.BACK) }, label = { Text("Back") })
     }
     val chosen = if (rank != null && suit != null) Card(rank, suit) else null
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -227,9 +257,11 @@ private fun SettingsDialog(initial: TrainerSettings, onDismiss: () -> Unit, onSa
     var path by remember { mutableStateOf(initial.path) }
     var token by remember { mutableStateOf(initial.token) }
     var every by remember { mutableStateOf(initial.autoSyncEvery.toString()) }
+    var handReader by remember { mutableStateOf(initial.handReaderEnabled) }
+    var multiDeck by remember { mutableStateOf(initial.multiDeck) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("GitHub sync") },
+        title = { Text("Settings") },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 OutlinedTextField(owner, { owner = it }, label = { Text("Owner") }, singleLine = true)
@@ -245,11 +277,29 @@ private fun SettingsDialog(initial: TrainerSettings, onDismiss: () -> Unit, onSa
                     singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 )
                 Text("Trained data is published to <repo>/<folder>/ on every sync.", fontSize = 12.sp, color = Color.Gray)
+                Text("Modules", fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 8.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Hand reader")
+                        Text("Read hands, piles and card backs from anywhere at the table", fontSize = 12.sp, color = Color.Gray)
+                    }
+                    Switch(handReader, { handReader = it })
+                }
+                if (handReader) Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Multiple decks")
+                        Text("Allow the same card twice in one hand", fontSize = 12.sp, color = Color.Gray)
+                    }
+                    Switch(multiDeck, { multiDeck = it })
+                }
             }
         },
         confirmButton = {
             TextButton(onClick = {
-                onSave(TrainerSettings(owner.trim(), repo.trim(), branch.trim(), path.trim(), token.trim(), every.toIntOrNull() ?: 0))
+                onSave(TrainerSettings(
+                    owner.trim(), repo.trim(), branch.trim(), path.trim(), token.trim(), every.toIntOrNull() ?: 0,
+                    handReaderEnabled = handReader, multiDeck = multiDeck,
+                ))
             }) { Text("Save") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
@@ -258,3 +308,46 @@ private fun SettingsDialog(initial: TrainerSettings, onDismiss: () -> Unit, onSa
 
 private fun pct(p: Float) = "%.0f%%".format(p * 100)
 
+
+/**
+ * Walks through samples labelled plain "Joker" and lets the user file each one as the high (big) or low
+ * (small) joker. Images come from the device or, for samples pulled from GitHub, are downloaded.
+ */
+@Composable
+private fun JokerSortDialog(vm: TrainerViewModel, onDone: () -> Unit) {
+    val queue = remember { vm.unsortedJokers() }
+    var index by remember { mutableStateOf(0) }
+    val rec = queue.getOrNull(index)
+    var image by remember(rec?.id) { mutableStateOf<android.graphics.Bitmap?>(null) }
+    var loading by remember(rec?.id) { mutableStateOf(true) }
+    LaunchedEffect(rec?.id) {
+        if (rec != null) {
+            image = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { vm.sampleImage(rec) }
+            loading = false
+        }
+    }
+    if (rec == null) { onDone(); return }
+    fun next() { index++ }
+    AlertDialog(
+        onDismissRequest = onDone,
+        title = { Text("Sort jokers  ${index + 1} / ${queue.size}") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Box(Modifier.fillMaxWidth().height(320.dp), contentAlignment = Alignment.Center) {
+                    when {
+                        image != null -> Image(image!!.asImageBitmap(), "joker sample", Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
+                        loading -> CircularProgressIndicator()
+                        else -> Text("Image not available", color = Color.Gray)
+                    }
+                }
+                Text("High = big joker (usually the coloured one). Low = small/little joker.", fontSize = 12.sp, color = Color.Gray)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(onClick = { vm.relabel(rec, Card.JOKER_HIGH); next() }, modifier = Modifier.weight(1f)) { Text("High") }
+                    Button(onClick = { vm.relabel(rec, Card.JOKER_LOW); next() }, modifier = Modifier.weight(1f)) { Text("Low") }
+                }
+                OutlinedButton(onClick = ::next, modifier = Modifier.fillMaxWidth()) { Text("Leave as Joker (either)") }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDone) { Text("Done") } },
+    )
+}

@@ -49,6 +49,12 @@ class RemoteDatasetLoader(private val source: DatasetSource, cacheRoot: File) {
         return Loaded(manifest, shards, fromCache && manifest.shards.isNotEmpty())
     }
 
+    /** Download one dataset file (e.g. a sample JPEG at "samples/JK/<id>.jpg"). Null if missing. Blocking. */
+    fun fetch(relativePath: String): ByteArray? {
+        val r = Http.get(source.url(relativePath), source.headers())
+        return if (r.ok) r.body else null
+    }
+
     /** Whatever was last downloaded, without touching the network. Null if nothing cached. */
     fun loadCached(): Loaded? {
         if (!manifestFile.exists()) return null

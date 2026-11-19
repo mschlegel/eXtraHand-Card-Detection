@@ -2,6 +2,7 @@ package com.extrahand.cardtrainer
 
 import android.app.Application
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.os.Build
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -17,7 +18,10 @@ import com.extrahand.cards.core.LumaGridV1
 import com.extrahand.cards.core.Recognition
 import com.extrahand.cards.core.SampleRecord
 import com.extrahand.cards.sync.GitHubDatasetSync
+import com.extrahand.cards.sync.DatasetSource
 import com.extrahand.cards.sync.LocalDatasetStore
+import com.extrahand.cards.sync.RemoteDatasetLoader
+import com.extrahand.cardtrainer.handreader.HandReader
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -43,6 +47,9 @@ data class UiState(
     val loading: Boolean = true,
     val sampleCount: Int = 0,
     val labelsCovered: Int = 0,
+    val backSamples: Int = 0,
+    /** Samples labelled plain "JK" that could be sorted into high / low. */
+    val unsortedJokers: Int = 0,
     val pendingCount: Int = 0,
     /** Accuracy of the last [ACCURACY_WINDOW] guesses, null if none yet. */
     val recentAccuracy: Float? = null,
@@ -54,7 +61,11 @@ data class UiState(
     val message: String? = null,
     val settings: TrainerSettings = TrainerSettings(),
     val showSettings: Boolean = false,
+    /** Which screen is showing. Always TRAIN when the hand reader module is off. */
+    val mode: Mode = Mode.TRAIN,
 )
+
+enum class Mode { TRAIN, TABLE }
 
 const val ACCURACY_WINDOW = 50
 private const val SAVE_MAX_SIDE = 480
@@ -63,6 +74,44 @@ private const val SOURCE = "card-trainer/0.1.0"
 class TrainerViewModel(app: Application) : AndroidViewModel(app) {
     private val store = LocalDatasetStore(File(app.filesDir, "card-dataset"))
     private val recognizer = KnnCardRecognizer()
+
+    /**
+     * The optional hand reader module. Created on first use only, so it costs nothing while switched off.
+     * It shares [recognizer], so cards (and backs) learned here are read on the table straight away.
+     */
+    private var _handReader: HandReader? = null
+    val handReader: HandReader
+        get() = _handReader ?: HandReader(recognizer, viewModelScope, _state.value.settings.multiDeck, ::localSampleImage)
+            .also { _handReader = it; prefetchSamplePhotos() }
+
+    /** A sample's photo if it is on this device (decoded at most ~480 px, as saved). */
+    private fun localSampleImage(id: String, @Suppress("UNUSED_PARAMETER") label: String): com.extrahand.cards.core.CardImage? {
+        val f = store.get(id)?.image?.let { store.imageFile(it) }?.takeIf { it.exists() } ?: return null
+        return BitmapFactory.decodeFile(f.path)?.toCardImage()
+    }
+
+    /**
+     * The hand reader matches against real photos. Samples pulled from GitHub have only their vectors on
+     * the device, so download their JPEGs once (into the store's own samples/ folder) in the background.
+     */
+    private fun prefetchSamplePhotos() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val missing = store.samples().filter { s -> s.image != null && !store.imageFile(s.image!!).exists() }
+            if (missing.isEmpty()) return@launch
+            toast("Downloading ${missing.size} sample photos for the hand reader...")
+            val s = _state.value.settings
+            val src = DatasetSource.GitHub(s.owner, s.repo, s.branch.ifEmpty { "main" }, s.path.trim('/'), s.token.ifBlank { null })
+            val loader = RemoteDatasetLoader(src, File(getApplication<Application>().cacheDir, "sample-images"))
+            var got = 0
+            for (rec in missing) {
+                val bytes = runCatching { loader.fetch(rec.image!!) }.getOrNull() ?: continue
+                store.imageFile(rec.image!!).apply { parentFile?.mkdirs() }.writeBytes(bytes)
+                got++
+            }
+            _handReader?.samplePhotosChanged()
+            toast("Hand reader: $got of ${missing.size} sample photos downloaded")
+        }
+    }
     private val syncMutex = Mutex()
     @Volatile private var ready = false
     @Volatile private var latestCrop: Bitmap? = null
@@ -132,6 +181,35 @@ class TrainerViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    // ---------- joker sorting ----------
+
+    /** Samples still labelled as the unspecified joker ("JK"), oldest first. */
+    fun unsortedJokers(): List<SampleRecord> =
+        store.samples().filter { it.label == Card.JOKER_LABEL }.sortedBy { it.createdAt }
+
+    /** The sample's JPEG: from this device if present, else downloaded from the dataset on GitHub. Blocking. */
+    fun sampleImage(rec: SampleRecord): Bitmap? {
+        val path = rec.image ?: return null
+        val bytes = store.imageFile(path).takeIf { it.exists() }?.readBytes() ?: runCatching {
+            val s = _state.value.settings
+            val src = DatasetSource.GitHub(s.owner, s.repo, s.branch.ifEmpty { "main" }, s.path.trim('/'), s.token.ifBlank { null })
+            RemoteDatasetLoader(src, File(getApplication<Application>().cacheDir, "sample-images")).fetch(path)
+        }.getOrNull() ?: return null
+        return BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+    }
+
+    /** Re-file a sample under another card (e.g. "JK" -> high/low joker). Learned at once, published on sync. */
+    fun relabel(rec: SampleRecord, to: Card) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val newId = GitHubDatasetSync.stamp() + "-" + UUID.randomUUID().toString().take(6)
+            val moved = store.relabel(rec.id, to.label, newId) ?: return@launch
+            recognizer.forget(rec.id)
+            recognizer.learn(moved.id, to, DatasetCodec.decodeVector(moved.f, LumaGridV1.dim))
+            refreshStats()
+            maybeAutoSync()
+        }
+    }
+
     fun undoLast() {
         viewModelScope.launch(Dispatchers.IO) {
             val last = store.samples().maxByOrNull { it.createdAt } ?: run { toast("Nothing to undo"); return@launch }
@@ -180,9 +258,12 @@ class TrainerViewModel(app: Application) : AndroidViewModel(app) {
 
     fun showSettings(show: Boolean) = _state.update { it.copy(showSettings = show) }
 
+    fun setMode(m: Mode) = _state.update { it.copy(mode = if (it.settings.handReaderEnabled) m else Mode.TRAIN) }
+
     fun saveSettings(s: TrainerSettings) {
         TrainerSettings.save(getApplication(), s)
-        _state.update { it.copy(settings = s, showSettings = false) }
+        _handReader?.setMultiDeck(s.multiDeck)
+        _state.update { it.copy(settings = s, showSettings = false, mode = if (s.handReaderEnabled) it.mode else Mode.TRAIN) }
         if (s.canSync) sync()
     }
 
@@ -195,7 +276,9 @@ class TrainerViewModel(app: Application) : AndroidViewModel(app) {
         _state.update {
             it.copy(
                 sampleCount = samples.size,
-                labelsCovered = samples.map { s -> s.label }.toSet().size,
+                labelsCovered = samples.map { s -> s.label }.toSet().count { l -> Card.parse(l)?.let { c -> !c.isBack && !c.isJoker } == true },
+                backSamples = samples.count { s -> s.label == Card.BACK_LABEL },
+                unsortedJokers = samples.count { s -> s.label == Card.JOKER_LABEL },
                 pendingCount = store.pendingCount(),
                 recentAccuracy = if (judged.isEmpty()) null else judged.count { s -> s.correct == true }.toFloat() / judged.size,
                 datasetVersion = store.syncState().remoteDatasetVersion,

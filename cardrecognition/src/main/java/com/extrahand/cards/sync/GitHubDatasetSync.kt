@@ -84,6 +84,9 @@ class GitHubDatasetSync(private val store: LocalDatasetStore, private val cfg: G
                 if (f.exists()) {
                     progress.update("Uploading image ${i + 1}/${adds.size}...")
                     entries += GitHubClient.TreeEntry(p(img), gh.createBlob(f.readBytes()))
+                } else store.syncState().pendingCopies[img]?.let { src ->
+                    // Relabelled sample whose JPEG only exists on GitHub: copy it to its new path.
+                    gh.getFile(p(src), head)?.let { entries += GitHubClient.TreeEntry(p(img), gh.createBlob(it)) }
                 }
             }
             val shards = remote.shards.toMutableList()

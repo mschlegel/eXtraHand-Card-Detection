@@ -122,6 +122,15 @@ def locate(img: Image.Image) -> Image.Image:
     return img.crop((int(l * w), int(t * h), int(r * w), int(b * h)))
 
 
+def corner_view(v):
+    """Corner-index view of a luma-grid-v1 vector: blocks A (luma corner) and C (red corner), re-normalized.
+    Used to match partly hidden cards (fans, spreads). See FEATURE_SPEC.md, "Corner view"."""
+    v = np.asarray(v, dtype=np.float64)
+    c = np.concatenate([v[:CORNER_G[0] * CORNER_G[1]], v[DIM - RED_G[0] * RED_G[1]:]])
+    n = np.linalg.norm(c)
+    return c / n if n > 0 else c
+
+
 def encode_vector(v):
     m = np.abs(v).max()
     q = np.clip(np.rint(v * (127 / m if m > 0 else 0)), -127, 127).astype(np.int8)
