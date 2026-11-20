@@ -1,7 +1,7 @@
 {
     "formatVersion": 1,
-    "datasetVersion": 51,
-    "updatedAt": "2026-11-20T19:56:41Z",
+    "datasetVersion": 52,
+    "updatedAt": "2026-11-20T20:00:18Z",
     "extractor": "luma-grid-v1",
     "featureDim": 1248,
     "encoding": "int8-base64",
