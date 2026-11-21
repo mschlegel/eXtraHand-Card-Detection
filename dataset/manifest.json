@@ -1,11 +1,11 @@
 {
     "formatVersion": 1,
-    "datasetVersion": 54,
-    "updatedAt": "2026-11-21T15:45:27Z",
+    "datasetVersion": 55,
+    "updatedAt": "2026-11-21T15:46:07Z",
     "extractor": "luma-grid-v1",
     "featureDim": 1248,
     "encoding": "int8-base64",
-    "sampleCount": 390,
+    "sampleCount": 393,
     "labelCounts": {
         "10C": 6,
         "10D": 6,
@@ -26,7 +26,7 @@
         "5C": 6,
         "5D": 7,
         "5H": 5,
-        "5S": 6,
+        "5S": 7,
         "6C": 6,
         "6D": 6,
         "6H": 8,
@@ -59,10 +59,10 @@
         "KD": 6,
         "KH": 7,
         "KS": 7,
-        "QC": 6,
+        "QC": 7,
         "QD": 9,
         "QH": 6,
-        "QS": 7
+        "QS": 8
     },
     "shards": [
         {
@@ -319,6 +319,11 @@
             "file": "features/000053-20261121T151936Z.json",
             "count": 2,
             "sha256": "de0a8110947389668f693a02b571447c37dcfa9c30f933da4f99208f271cdd55"
+        },
+        {
+            "file": "features/000055-20261121T154606Z.json",
+            "count": 3,
+            "sha256": "a5c51bc1efcdad3642f9068b6aed1a788d1faa73ea89371b46945d0816c0efa8"
         }
     ],
     "deleted": [
